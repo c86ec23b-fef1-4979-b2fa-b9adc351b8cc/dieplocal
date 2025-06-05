@@ -49,7 +49,7 @@ export default class LivingEntity extends ObjectEntity {
 	/** Extra damage multipliers, needed for proper bullet penetration logic. */
     public commonMinDamageMultiplier = 1;
 	/** Extra damage multipliers, needed for proper bullet damage logic. */
-	public commonMaxDamageMultiplier = 1;
+	public commonMaxDamageMultiplier = 4;
 
 
     /** Extends ObjectEntity.destroy() - diminishes health as well. */
@@ -75,12 +75,6 @@ export default class LivingEntity extends ObjectEntity {
 		common *= Math.min(entity2.commonMaxDamageMultiplier, entity1.commonMaxDamageMultiplier);
         let dF1 = (entity1.damagePerTick * common) * entity2.damageReduction;
         let dF2 = (entity2.damagePerTick * common) * entity1.damageReduction;
-		
-		// Hack?
-        if (entity1 instanceof TankBody && entity2 instanceof TankBody) {
-            dF1 *= 1.5;
-            dF2 *= 1.5;
-        }
 
         // Damage can't be more than enough to kill health
         const ratio = Math.max(1 - entity1.healthData.values.health / dF2, 1 - entity2.healthData.values.health / dF1)
