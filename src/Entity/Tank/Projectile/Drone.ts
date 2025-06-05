@@ -74,8 +74,8 @@ export default class Drone extends Bullet {
 
         this.ai.movementSpeed = this.ai.aimSpeed = this.baseAccel;
 		
-		this.commonMaxDamageMultiplier = 4;
 		this.commonMinDamageMultiplier = 1;
+		this.commonMaxDamageMultiplier = 1;
     }
 
     /** Extends LivingEntity.destroy - so that the drone count decreases for the barrel. */
