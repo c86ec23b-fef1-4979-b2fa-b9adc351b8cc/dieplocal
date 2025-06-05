@@ -95,6 +95,8 @@ export default class TankBody extends LivingEntity implements BarrelBase {
         // spawn protection
         this.styleData.values.flags |= StyleFlags.isFlashing;
         this.damageReduction = 0;
+		this.commonMinDamageMultiplier = 1;
+		this.commonMaxDamageMultiplier = 6;
 
         if (this.game.playersOnMap) this.physicsData.values.flags |= PhysicsFlags.showsOnMap;
 
