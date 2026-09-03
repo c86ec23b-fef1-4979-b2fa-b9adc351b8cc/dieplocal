@@ -198,6 +198,7 @@ export const sendAchievementEvent = (client: Client, event: eventId, data: Achie
     const completed = [];
 
     const achievements = achievementEventMap.get(event);
+    if (!achievements) return;
 
     for (const a of achievements) {
         if (checkCondition(a, data)) {
