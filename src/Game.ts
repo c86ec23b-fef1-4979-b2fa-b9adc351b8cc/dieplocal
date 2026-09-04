@@ -73,6 +73,8 @@ const GamemodeToArenaClass: Record<DiepGamemodeID, (typeof ArenaEntity) | null> 
  * Used for determining which endpoints go to the default.
  */
 export default class GameServer {
+    /** All game servers. */
+    public static games: GameServer[] = [];
     /** Stores total player count. */
     public static globalPlayerCount = 0;
     /** Whether or not the game server is running. */
@@ -152,6 +154,8 @@ export default class GameServer {
         this._tickInterval = setInterval(() => {
             if (this.clients.size) this.tickLoop(); // Don't tick empty games
         }, config.mspt);
+
+        GameServer.games.push(this);
     }
 
     /** Returns a WebSocketServer Writer Broadcast Stream. */
