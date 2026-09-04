@@ -121,7 +121,7 @@ export default class GameServer {
         const _add = this.clients.add;
         this.clients.add = (client: Client) => {
             GameServer.globalPlayerCount += 1;
-            this.broadcastPlayerCount();
+            GameServer.broadcastPlayerCount();
             
             return _add.call(this.clients, client);
         }
@@ -130,7 +130,7 @@ export default class GameServer {
             let success = _delete.call(this.clients, client);
             if (success) {
                 GameServer.globalPlayerCount -= 1;
-                this.broadcastPlayerCount();
+                GameServer.broadcastPlayerCount();
                 this.clientsAwaitingSpawn.delete(client);
             }
 
@@ -139,7 +139,7 @@ export default class GameServer {
         const _clear = this.clients.clear;
         this.clients.clear = () => {
             GameServer.globalPlayerCount -= this.clients.size;
-            this.broadcastPlayerCount();
+            GameServer.broadcastPlayerCount();
             this.clientsAwaitingSpawn.clear();
 
             return _clear.call(this.clients);
@@ -162,10 +162,14 @@ export default class GameServer {
     public broadcast() {
         return new WSSWriterStream(this);
     }
+
     /** Broadcasts a player count packet. */
-    public broadcastPlayerCount() {
-        this.broadcast().vu(ClientBound.PlayerCount).vu(GameServer.globalPlayerCount).send();
+    public static broadcastPlayerCount() {
+        for (const game of GameServer.games) {
+            game.broadcast().vu(ClientBound.PlayerCount).vu(GameServer.globalPlayerCount).send();
+        }
     }
+
     /** Sends a notification to all clients connected to this game server. */
     public broadcastMessage(text: string, color = 0x000000, time = 5000, id = "") {
         this.broadcast().u8(ClientBound.Notification).stringNT(text).u32(color).float(time).stringNT(id).send();
