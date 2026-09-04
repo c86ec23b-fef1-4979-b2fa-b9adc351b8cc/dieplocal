@@ -41,7 +41,6 @@ export const bannedClients = new Set<string>();
 const connections = new Map<string, number>();
 const allClients = new Set<Client>();
 const app = App({});
-const games: GameServer[] = [];
 
 app.ws("/*", {
     compression: SHARED_COMPRESSOR,
@@ -63,7 +62,7 @@ app.ws("/*", {
             return ws.close();
         }
         connections.set(ipAddress, conns + 1);
-        const game = games.find(({ gamemode }) => gamemode === ws.getUserData().gamemode);
+        const game = GameServer.games.find(({ gamemode }) => gamemode === ws.getUserData().gamemode);
         if (!game) {
             return ws.close();
         }
@@ -99,7 +98,7 @@ app.get("/*", (res, req) => {
                 res.writeStatus("200 OK").end(JSON.stringify(TankDefinitions));
                 return;
             case "/servers":
-                res.writeStatus("200 OK").end(JSON.stringify(games.map(({ gamemode, name }) => ({ gamemode, name }))));
+                res.writeStatus("200 OK").end(JSON.stringify(GameServer.games.map(({ gamemode, name }) => ({ gamemode, name }))));
                 return;
             case "/commands":
                 res.writeStatus("200 OK").end(JSON.stringify(config.enableCommands ? Object.values(commandDefinitions) : []));
@@ -160,14 +159,11 @@ app.listen(PORT, (success) => {
     //
     // NOTES(0): As of now, both servers run on the same process (and thread) here
     const ffa = new GameServer(FFAArena, "FFA");
-    const sbx = new GameServer(SandboxArena, "Sandbox");
-
-    games.push(ffa, sbx);
-
+    const sandbox = new GameServer(SandboxArena, "Sandbox");
 
     util.saveToLog("Servers up", "All servers booted up.", 0x37F554);
     util.log("Dumping endpoint -> gamemode routing table");
-    for (const game of games) console.log("> " + `localhost:${config.serverPort}/${game.gamemode}`.padEnd(40, " ") + " -> " + game.name);
+    for (const game of GameServer.games) console.log("> " + `localhost:${config.serverPort}/${game.gamemode}`.padEnd(40, " ") + " -> " + game.name);
 });
 
 process.on("uncaughtException", (error) => {
