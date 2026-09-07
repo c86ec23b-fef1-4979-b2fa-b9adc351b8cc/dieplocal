@@ -24,6 +24,7 @@ import { InputFlags, PhysicsFlags } from "../Const/Enums";
 import { Entity } from "../Native/Entity";
 import { PhysicsGroup, PositionGroup, RelationsGroup } from "../Native/FieldGroups";
 import PackedEntitySet from "../Physics/PackedEntitySet";
+import { tps } from "../config";
 
 // Beware
 // The logic in this file is somewhat messed up
@@ -38,6 +39,14 @@ export const enum AIState {
     hasTarget = 1,
     possessed = 3
 }
+
+export const enum PriorityLevel {
+    Passive = 0,
+    Neutral = 1,
+    Hostile = 2
+}
+
+const TARGET_RESET_INTERVAL = 10 * tps;
 
 /**
  * Inputs are the shared thing between AIs and Clients. Both use inputs
@@ -100,6 +109,9 @@ export class AI {
     public targetFilterNonLiving = true;
     /** Target filter letting owner classes filter what can't be a target by position - false = not valid target */
     public targetFilter: (possibleTargetPos: VectorAbstract) => boolean;
+    
+    /** The game tick that this AI found a valid target. */
+    private targetResetTick: number = -1;
 
     /** Stores a per-AI hash used to optimize ticking */
     private _aiHash: number;
@@ -156,7 +168,8 @@ export class AI {
                 this.viewRange, this.viewRange
             );
 
-        let closestEntity = null;
+        let chosenEntity = null;
+        let highestPriority = -1;
         let closestDistSq = this.viewRange ** 2;
 
         for (let i = 0; i < entities.data.length; ++i) {
@@ -189,20 +202,24 @@ export class AI {
                 const dX = entity.positionData.values.x - rootPos.x;
                 const dY = entity.positionData.values.y - rootPos.y;
                 const distSq = dX * dX + dY * dY;
+                
+                const isBetter = entity.aiPriority > highestPriority || (entity.aiPriority === highestPriority && distSq < closestDistSq);
 
-                if (distSq < closestDistSq) {
-                    closestEntity = entity;
+                if (isBetter) {
+                    chosenEntity = entity;
                     closestDistSq = distSq;
+                    highestPriority = entity.aiPriority;
+                    this.targetResetTick = tick + TARGET_RESET_INTERVAL;
                 }
             }
         }
 
-        return this.target = closestEntity;
+        return this.target = chosenEntity;
     }
 
     /** Aims and predicts at the target. */
     public aimAtTarget() {
-        if(!this.target) return;
+        if (!this.target) return;
 
         const movementSpeed = this.aimSpeed * 1.6;
         const ownerPos = this.owner.getWorldPosition();
@@ -213,7 +230,6 @@ export class AI {
         }
 
         if (movementSpeed <= 0.001) { // Pls no weirdness
-
             this.inputs.movement.set({
                 x: pos.x - ownerPos.x,
                 y: pos.y - ownerPos.y
@@ -225,6 +241,7 @@ export class AI {
             this.inputs.movement.magnitude = 1;
             return;
         }
+
         if (this.doAimPrediction) {
             const delta = {
                 x: pos.x - ownerPos.x,
@@ -252,7 +269,6 @@ export class AI {
                 x: pos.x + offset * unitDistancePerp.x,
                 y: pos.y + offset * unitDistancePerp.y
             });
-
         } else {
             this.inputs.mouse.set({
                 x: pos.x,
@@ -284,6 +300,11 @@ export class AI {
                 y: Math.sin(angle) * 100
             });
         } else {
+            if (tick === this.targetResetTick) {
+                this.target = null;
+                return this.findTarget(tick); // Find another target next tick
+            }
+
             this.state = AIState.hasTarget;
             this.inputs.flags |= InputFlags.leftclick;
             this.aimAtTarget();
