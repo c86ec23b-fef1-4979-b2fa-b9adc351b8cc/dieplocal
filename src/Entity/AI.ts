@@ -46,7 +46,7 @@ export const enum PriorityLevel {
     Hostile = 2
 }
 
-const TARGET_RESET_INTERVAL = 10 * tps;
+const TARGET_RESET_INTERVAL = 60 * tps;
 
 /**
  * Inputs are the shared thing between AIs and Clients. Both use inputs
