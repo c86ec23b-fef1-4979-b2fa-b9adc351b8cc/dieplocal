@@ -19,13 +19,13 @@
 import GameServer from "../Game";
 import Vector, { VectorAbstract } from "../Physics/Vector";
 import ObjectEntity from "./Object";
+import TankBody from "./Tank/TankBody";
 
-import { InputFlags, PhysicsFlags } from "../Const/Enums";
+import { InputFlags, PhysicsFlags, EntityTags } from "../Const/Enums";
 import { Entity } from "../Native/Entity";
 import { PhysicsGroup, PositionGroup, RelationsGroup } from "../Native/FieldGroups";
 import PackedEntitySet from "../Physics/PackedEntitySet";
 import { tps } from "../config";
-
 // Beware
 // The logic in this file is somewhat messed up
 
@@ -104,7 +104,10 @@ export class AI {
     public aimSpeed = 1;
     /** If the AI should predict enemy's movements, and aim accordingly. */
     public doAimPrediction: boolean = false;
-
+    /** If the AI should ignore all shapes. */
+    public ignoreShapes: boolean = false;
+    /** The minimum player level that this AI can target. */
+    public minPlayerLevel: number = 0;
     /** Optionally filter targets for health */
     public targetFilterNonLiving = true;
     /** Target filter letting owner classes filter what can't be a target by position - false = not valid target */
@@ -188,6 +191,11 @@ export class AI {
                 if (!entity.isPhysical) continue;
                 // Check if the target is living
                 if (this.targetFilterNonLiving && !entity.healthData) continue;
+                // Check if the target is a shape
+                if (this.ignoreShapes && entity.entityTags & EntityTags.isShape) continue;
+                // Check if the target is a tank and has enough levels
+                // We could use isTank here, but isObject deals with most of that already, and this code runs many times per tick
+                if (this.minPlayerLevel && entity.entityTags & EntityTags.isTank && (entity as TankBody).cameraEntity.cameraData.values.level < this.minPlayerLevel) continue;
                 // Check if the target is a base
                 if (entity.physicsData.values.flags & PhysicsFlags.isBase) continue;
                 // Don't target entities who have an object owner
