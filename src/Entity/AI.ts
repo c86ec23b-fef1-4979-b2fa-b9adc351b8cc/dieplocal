@@ -19,6 +19,7 @@
 import GameServer from "../Game";
 import Vector, { VectorAbstract } from "../Physics/Vector";
 import ObjectEntity from "./Object";
+import LivingEntity from "./Live";
 import TankBody from "./Tank/TankBody";
 
 import { InputFlags, PhysicsFlags, EntityTags } from "../Const/Enums";
@@ -104,6 +105,8 @@ export class AI {
     public aimSpeed = 1;
     /** If the AI should predict enemy's movements, and aim accordingly. */
     public doAimPrediction: boolean = false;
+    /** If the AI should stay near the owner, used by drones. */
+    public stayAroundOwner: boolean = false;
     /** If the AI should ignore all shapes. */
     public ignoreShapes: boolean = false;
     /** The minimum player level that this AI can target. */
@@ -145,35 +148,36 @@ export class AI {
             return Entity.exists(this.target) ? this.target : (this.target = null);
         }
 
-        const rootPos = this.owner.rootParent.positionData.values;
+        const rootPos = this.owner.getWorldPosition();
         const team = this.owner.relationsData.values.team;
+        const range = this.viewRange ** 2;
+        const maxRange = (this.viewRange * 1.5) ** 2;
 
         // TODO(speed): find a way to speed up
         if (Entity.exists(this.target)) {
-
             // If the AI already has a valid target within view distance, it's not necessary to find a new one
-
             // Make sure the target hasn't changed teams, and is existant (sides != 0)
             if (team !== this.target.relationsData.values.team && this.target.physicsData.values.sides !== 0) {
                 // confirm its within range
-                const targetDistSq = (this.target.positionData.values.x - rootPos.x) ** 2 + (this.target.positionData.values.y - rootPos.y) ** 2;
-                if (this.targetFilter(this.target.positionData.values) && targetDistSq < (this.viewRange ** 2) * 2) return this.target; // this range is inaccurate i think
+                const pos = this.stayAroundOwner ? this.owner.getRootOwner().positionData.values : rootPos;
+                const targetDistSq = (this.target.positionData.values.x - pos.x) ** 2 + (this.target.positionData.values.y - pos.y) ** 2;
 
+                if (this.targetFilter(this.target.positionData.values) && targetDistSq < maxRange) {
+                    return this.target;
+                }
             }
         }
 
-        // const entities = this.game.entities.inner.slice(0, this.game.entities.lastId);
-        const root = (this.owner.rootParent === this.owner && (this.owner.relationsData.values.owner as ObjectEntity)?.positionData) ? this.owner.relationsData.values.owner as ObjectEntity : this.owner.rootParent;
         const entities = this.viewRange === Infinity
             ? PackedEntitySet.FULL_SET
             : this.game.entities.collisionManager.retrieve(
-                root.positionData.values.x, root.positionData.values.y,
+                rootPos.x, rootPos.y,
                 this.viewRange, this.viewRange
             );
 
         let chosenEntity = null;
         let highestPriority = -1;
-        let closestDistSq = this.viewRange ** 2;
+        let closestDistSq = range;
 
         for (let i = 0; i < entities.data.length; ++i) {
             let chunk = entities.data[i];
@@ -207,10 +211,19 @@ export class AI {
                 // Custom check
                 if (!this.targetFilter(entity.positionData.values)) continue;
 
+                if (this.stayAroundOwner) {
+                    const rootOwnerPos = this.owner.getRootOwner().positionData.values;
+                    const dX = entity.positionData.values.x - rootOwnerPos.x;
+                    const dY = entity.positionData.values.y - rootOwnerPos.y;
+                    const distSq = dX * dX + dY * dY;
+
+                    if (distSq > maxRange) continue;
+                }
+
                 const dX = entity.positionData.values.x - rootPos.x;
                 const dY = entity.positionData.values.y - rootPos.y;
                 const distSq = dX * dX + dY * dY;
-                
+
                 const isBetter = entity.aiPriority > highestPriority || (entity.aiPriority === highestPriority && distSq < closestDistSq);
 
                 if (isBetter) {
@@ -286,6 +299,21 @@ export class AI {
 
         this.inputs.movement.magnitude = 1;
         this.inputs.movement.angle = Math.atan2(this.inputs.mouse.y - ownerPos.y, this.inputs.mouse.x - ownerPos.x);
+    }
+    
+    public onDamage(source: LivingEntity, amount: number) {
+        if (this.target) return;
+
+        const owner = source.getRootOwner();
+
+        const range = (this.viewRange * 1.5) ** 2;
+        const dX = owner.positionData.values.x - this.owner.positionData.values.x;
+        const dY = owner.positionData.values.y - this.owner.positionData.values.y;
+        const distSq = dX * dX + dY * dY;
+        
+        if (distSq < range) {
+            this.target = owner;
+        }
     }
 
     public tick(tick: number) {
