@@ -347,6 +347,15 @@ export default class ObjectEntity extends Entity {
         this.isPhysical = false;
     }
 
+    public getRootOwner(): ObjectEntity {
+        let owner: ObjectEntity = this;
+        while (ObjectEntity.isObject(owner.relationsData.values.owner) && owner.relationsData.values.owner.hash !== 0) {
+            owner = owner.relationsData.values.owner;
+        }
+
+        return owner;
+    }
+
     /** Returns the true world position (even for objects who have parents). */
     public getWorldPosition(): Vector {
         let pos = new Vector(this.positionData.values.x, this.positionData.values.y);
